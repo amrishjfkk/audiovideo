@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>वीडियो में गाना जोड़ें</title>
+    <style>
+        /* High Contrast, Large Text CSS */
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 22px; 
+            text-align: center; 
+            background: #eef2f5; 
+            color: #111;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .step { display: none; }
+        .active { display: block; }
+        
+        button { 
+            font-size: 24px; 
+            font-weight: bold;
+            padding: 15px 40px; 
+            background: #0066cc; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            margin-top: 30px;
+            width: 100%;
+        }
+        button:hover { background: #004c99; }
+        .submit-btn { background: #28a745; }
+        .submit-btn:hover { background: #1e7e34; }
+
+        input[type="text"], input[type="file"] { 
+            font-size: 20px; 
+            padding: 15px; 
+            width: 90%; 
+            margin: 15px 0; 
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+        label { font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;}
+        input[type="checkbox"] { width: 25px; height: 25px; cursor: pointer;}
+        
+        #loading { 
+            display: none; 
+            margin-top: 50px; 
+            font-size: 26px; 
+            color: #333; 
+            font-weight: bold; 
+        }
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #28a745;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <form id="videoForm" action="/process" method="POST" enctype="multipart/form-data" onsubmit="showLoading()">
+            
+            <div id="step1" class="step active">
+                <h2>चरण 1: अपना वीडियो चुनें</h2>
+                <input type="file" name="video" accept="video/*" required>
+                <button type="button" onclick="nextStep(2)">आगे बढ़ें</button>
+            </div>
+
+            <div id="step2" class="step">
+                <h2>चरण 2: गाना चुनें</h2>
+                <p>आप जो गाना लगाना चाहते हैं, उसका YouTube लिंक यहाँ डालें:</p>
+                <input type="text" name="yt_url" placeholder="YouTube लिंक यहाँ पेस्ट करें..." required>
+                <button type="button" onclick="nextStep(3)">आगे बढ़ें</button>
+            </div>
+
+            <div id="step3" class="step">
+                <h2>चरण 3: गाने का कौन सा हिस्सा चाहिए?</h2>
+                <p>गाना कहाँ से शुरू करना है? समय लिखें (जैसे: 01:20)</p>
+                <input type="text" name="start_time" placeholder="00:00">
+                <br><br>
+                <label>
+                    <input type="checkbox" name="use_beginning" value="true">
+                    गाने को बिल्कुल शुरू से ही लगाएं
+                </label>
+                <button type="submit" class="submit-btn">मेरा वीडियो बनाएं!</button>
+            </div>
+
+        </form>
+
+        <div id="loading">
+            <div class="loader"></div>
+            आपका वीडियो तैयार हो रहा है... कृपया कुछ समय प्रतीक्षा करें। <br><br>
+            <span style="font-size: 18px; color: #666;">(इसमें 1-2 मिनट लग सकते हैं। पेज को बंद न करें।)</span>
+        </div>
+    </div>
+
+    <script>
+        // Function to move between wizard steps
+        function nextStep(step) {
+            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+            document.getElementById('step' + step).classList.add('active');
+        }
+
+        // Function to hide form and show loading spinner when submitted
+        function showLoading() {
+            document.getElementById('videoForm').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            // Re-show form after 3 minutes just in case the file downloads and the browser stays on the page
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('videoForm').style.display = 'block';
+                nextStep(1); // reset to step 1
+                document.getElementById('videoForm').reset();
+            }, 180000); 
+        }
+    </script>
+
+</body>
+</html>
