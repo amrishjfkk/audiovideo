@@ -16,9 +16,15 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 def ping_website():
     while True:
         try:
-            # Render automatically sets the RENDER_EXTERNAL_URL environment variable
-            url = os.environ.get('RENDER_EXTERNAL_URL', 'http://localhost:10000')
-            requests.get(f"{url}/keep-alive")
+            # Railway sets RAILWAY_PUBLIC_DOMAIN, Render uses RENDER_EXTERNAL_URL
+            domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN') or os.environ.get('RENDER_EXTERNAL_URL')
+            
+            if domain:
+                # Ensure it has https://
+                url = domain if domain.startswith('http') else f"https://{domain}"
+                requests.get(f"{url}/keep-alive")
+            else:
+                requests.get("http://localhost:10000/keep-alive")
         except:
             pass
         # Ping every 10 minutes (600 seconds)
@@ -71,9 +77,17 @@ def process_video():
         # 2. Download only the audio from the YouTube link
         yt_cmd = [
             'yt-dlp', '-f', 'bestaudio[ext=m4a]/bestaudio', 
-            '--outtmpl', aud_path, yt_url
+            '--outtmpl', aud_path
         ]
-        subprocess.run(yt_cmd, check=True)
+        
+        # If the cookies.txt file exists, use it to bypass YouTube's block!
+        if os.path.exists('cookies.txt'):
+            yt_cmd.extend(['--cookies', 'cookies.txt'])
+            
+        yt_cmd.append(yt_url) # Add the URL at the very end
+        
+        # Run yt-dlp and capture any errors for the Railway logs
+        subprocess.run(yt_cmd, check=True, capture_output=True, text=True)
 
         # 3. Cut the audio and merge it with the video
         merge_cmd = [
@@ -83,12 +97,12 @@ def process_video():
             '-t', str(duration),      # Duration to cut audio
             '-i', aud_path,           # Input 2: Audio
             '-c:v', 'copy',           # Copy video without re-encoding (FAST)
-            '-c:a', 'aac',            # Format audio to AAC for phone compatibility
+            '-c:a', 'aac',            # Format audio to AAC
             '-map', '0:v:0',          # Take video from input 1
             '-map', '1:a:0',          # Take audio from input 2
             out_path
         ]
-        subprocess.run(merge_cmd, check=True)
+        subprocess.run(merge_cmd, check=True, capture_output=True, text=True)
 
         # 4. Clean up original temp files to save disk space
         os.remove(vid_path)
@@ -97,10 +111,24 @@ def process_video():
         # 5. Send the final video to the user
         return send_file(out_path, as_attachment=True, download_name="Naya_Video.mp4")
 
+    except subprocess.CalledProcessError as e:
+        # This will print the EXACT error from yt-dlp or ffmpeg into your Railway logs
+        print("\n---- PROCESS ERROR ----")
+        print(f"Command failed: {' '.join(e.cmd)}")
+        print(f"Error output: {e.stderr}")
+        print("-----------------------\n")
+        
+        # Clean up files if they exist so we don't clog up the server on a failure
+        if os.path.exists(vid_path): os.remove(vid_path)
+        if os.path.exists(aud_path): os.remove(aud_path)
+        
+        return f"Video processing failed. Please check the logs on Railway.", 500
+        
     except Exception as e:
-        print(f"Error processing video: {e}")
-        return "Video processing failed. Please check the YouTube link and try again.", 500
+        print(f"General Error: {e}")
+        return "An unexpected error occurred.", 500
 
 if __name__ == '__main__':
-    # Port 10000 is required by Render
-    app.run(host='0.0.0.0', port=10000)
+    # Railway passes the port automatically via the PORT environment variable
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
